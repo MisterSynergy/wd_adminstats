@@ -1,0 +1,9 @@
+{{{{User:MisterSynergy/activity-header}}}}
+
+* Last update: <span id="msynbot-activity-date" data-utc-timestamp="{timestamp}">{timestamp_formatted}</span>.
+* [[Special:MyLanguage/Wikidata:IP block exemption|policy]] • [[Special:ListUsers/{group}|list of members]] • [[Special:ListGroupRights#{group}|associated rights]]
+* There is no inactivity policy for this group.
+
+{report_table}
+
+{{{{User:MisterSynergy/activity-legend}}}}

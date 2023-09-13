@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from datetime import datetime
 from time import gmtime, strftime
 from typing import Optional, Type, ValuesView
@@ -347,12 +348,14 @@ class UserWithInactivityPolicy(UserWithElevatedRights):
 # slipping: background-color:#FDD;
 
     @property
+    @abstractmethod
     def is_inactive(self) -> bool:
-        ...
-    
+        pass
+
     @property
+    @abstractmethod
     def is_slipping_into_inactivity(self) -> bool:
-        ...
+        pass
 
     @property
     def inactivity_class(self) -> str:

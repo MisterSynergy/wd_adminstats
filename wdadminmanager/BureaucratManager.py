@@ -31,8 +31,8 @@ class Bureaucrat(UserWithInactivityPolicy, RequiresAdmin):
         add_rights = [ 'accountcreator', 'bot', 'bureaucrat', 'confirmed', 'flood', 'interface-admin', 'sysop', 'translationadmin', 'wikidata-staff' ]
         remove_rights = [ 'accountcreator', 'bot', 'confirmed', 'flood', 'interface-admin', 'translationadmin', 'wikidata-staff' ]
 
-        for tpl in self.get_rights_actions(self.start_ts):
-            params = tpl[0]
+        for dct in self.get_rights_actions(self.start_ts):
+            params = dct.get('log_params', '')
 
             try:
                 params_loaded = phpserialize.loads(params)

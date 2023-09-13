@@ -1,12 +1,13 @@
 from abc import abstractmethod
 from datetime import datetime
 from time import gmtime, strftime
-from typing import Optional, Type, ValuesView
+from typing import Any, Optional, Type, ValuesView
 
 import phpserialize
 import requests
 
 from .Replica import Replica
+
 
 class User:
     level:str
@@ -53,9 +54,9 @@ class User:
           AND log_title='CentralAuth/{self.username_underscore_escaped}'"""
 
         result = Replica.query(query, 'metawiki')
-        for tpl in result:
+        for dct in result:
             try:
-                params = phpserialize.loads(tpl[0])
+                params = phpserialize.loads(dct.get('log_params', ''))
             except ValueError as exception:  # old log_params format, to be ignored
                 continue
 
@@ -80,7 +81,7 @@ class User:
         if len(result) == 0:
             self.editcount = 0
         else:
-            self.editcount = result[0][0]
+            self.editcount = result[0].get('user_editcount', 0)
 
     def count_logged_actions(self, earliest_timestamp:int, log_types:list[str]) -> int:
         log_types_concatenated = "', '".join(log_types)
@@ -97,7 +98,7 @@ class User:
 
         result = Replica.query(query)
 
-        return result[0][0]
+        return result[0].get('cnt', 0)
 
     def count_property_creations(self, earliest_timestamp:int) -> int:
         query = f"""SELECT
@@ -114,9 +115,9 @@ class User:
 
         result = Replica.query(query)
 
-        return result[0][0]
+        return result[0].get('cnt', 0)
 
-    def get_rights_actions(self, earliest_timestamp:int) -> list[tuple]:
+    def get_rights_actions(self, earliest_timestamp:int) -> list[dict[str, Any]]:
         query = f"""SELECT
           log_params
         FROM
@@ -133,7 +134,7 @@ class User:
 
     def count_mediawiki_namespace_edits(self, earliest_timestamp:int) -> int:
         query = f"""SELECT
-          COUNT(rev_id)
+          COUNT(rev_id) AS cnt
         FROM
           revision_userindex
             JOIN actor_revision ON rev_actor=actor_id
@@ -146,15 +147,15 @@ class User:
 
         result = Replica.query(query)
 
-        return result[0][0]
+        return result[0].get('cnt', 0)
 
     def count_jscss_edits(self, earliest_timestamp:int) -> int:
         edit_count = 0
         
-        for tpl in self._query_jscss_edits(earliest_timestamp):
-            page_title = tpl[0].decode('utf8')
-            page_namespace = tpl[1]
-            #page_content_model = tpl[2]
+        for dct in self._query_jscss_edits(earliest_timestamp):
+            page_title = dct.get('page_title', b'').decode('utf8')
+            page_namespace = dct.get('page_namespace', 0)
+            #page_content_model = dct.get('page_content_model', '')
 
             if page_namespace in [ 2, 3 ] and page_title.startswith(self.username_underscore):
                 continue
@@ -163,7 +164,7 @@ class User:
         
         return edit_count
 
-    def _query_jscss_edits(self, earliest_timestamp:int) -> list[tuple]:
+    def _query_jscss_edits(self, earliest_timestamp:int) -> list[dict[str, Any]]:
         query = f"""SELECT
           page_title,
           page_namespace,
@@ -229,7 +230,7 @@ class User:
         if len(result) == 0:
             self.last_edit_activity = 0
         else:
-            self.last_edit_activity = int(result[0][0])
+            self.last_edit_activity = int(result[0].get('rev_timestamp', 0))
 
     def report_table_row(self) -> str:
         report_table_wikitext_rows = [ '|-' ]
@@ -278,9 +279,9 @@ class UserWithElevatedRights(User):
         except RuntimeError as exception:
             return
 
-        for tpl in rights_changes_wikidata + rights_changes_metawiki:
-            timestamp = int(tpl[0].decode('utf8'))
-            params = tpl[1]
+        for dct in rights_changes_wikidata + rights_changes_metawiki:
+            timestamp = int(dct.get('log_timestamp', b'').decode('utf8'))
+            params = dct.get('log_params', '')
 
             try:
                 params_loaded = phpserialize.loads(params)
@@ -308,7 +309,7 @@ class UserWithElevatedRights(User):
                     previous_level_user = UserWithElevatedRights(previous_username, level=former_level)
                     self.promotion_timestamps += previous_level_user.promotion_timestamps
 
-    def _query_rights_changes(self, database:str='wikidatawiki') -> list[tuple]:
+    def _query_rights_changes(self, database:str='wikidatawiki') -> list[dict[str, Any]]:
         if database=='wikidatawiki':
             log_title = self.username_underscore_escaped
         else:  # this is important since some logs are located in metawiki
@@ -415,7 +416,7 @@ class UserManager:
 
         result = Replica.query(query)
 
-        return [ row[0].decode('utf8') for row in result ]
+        return [ row.get('user_name', b'').decode('utf8') for row in result ]
 
     def populate_user_data(self) -> None:
         self.user_data = {}

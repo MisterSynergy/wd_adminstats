@@ -1,20 +1,17 @@
 from os.path import expanduser
+from typing import Any
 
-from mysql.connector import FieldType, MySQLConnection
-from mysql.connector.errors import ProgrammingError
-
-
-#STRINGABLE_FIELDS = [ 'VAR_STRING', 'STRING' ]  # some are clearly missing here
+import mariadb
 
 
 class Replica:
     def __init__(self, database:str) -> None:
-        self.replica = MySQLConnection(
+        self.replica = mariadb.connect(
             host=f'{database}.analytics.db.svc.wikimedia.cloud',
             database=f'{database}_p',
-            option_files=f'{expanduser("~")}/replica.my.cnf'
+            default_file=f'{expanduser("~")}/replica.my.cnf'
         )
-        self.cursor = self.replica.cursor()
+        self.cursor = self.replica.cursor(dictionary=True)
 
     def __enter__(self):
         return self.cursor
@@ -24,21 +21,13 @@ class Replica:
         self.replica.close()
 
     @classmethod
-    def query(cls, query:str, database:str='wikidatawiki') -> list[tuple]: #tuple[list[tuple], tuple[str], list[str]]:
+    def query(cls, query:str, database:str='wikidatawiki') -> list[dict[str, Any]]:
         with cls(database) as db_cursor:
             try:
                 db_cursor.execute(query)
-            except ProgrammingError as exception:
+            except mariadb.ProgrammingError as exception:
                 raise RuntimeError(f'Cannot query {query}') from exception
-            else:
-                result = db_cursor.fetchall()
-#                column_names = db_cursor.column_names
 
-#                columns_to_convert = []
-#                for desc in db_cursor.description:
-#                    if FieldType.get_info(desc[1]) not in STRINGABLE_FIELDS:
-#                        continue
-
-#                    columns_to_convert.append(desc[0])
+            result = db_cursor.fetchall()
 
         return result

@@ -39,21 +39,21 @@ class InterfaceAdmin(UserWithInactivityPolicy):
         return self.last_activity < self.warn_ts_any
 
     @property
-    def is_ia_inactive(self) -> bool:
+    def is_inactive(self) -> bool:
         return self.interfaceadmin_actions < INACTIVE_UIADMIN_ACTIONS
 
     @property
-    def is_slipping_into_ia_inactivity(self) -> bool:
+    def is_slipping_into_inactivity(self) -> bool:
         return self.interfaceadmin_actions_warn < INACTIVE_UIADMIN_ACTIONS
 
     @property
     def ia_inactivity_class(self) -> str:
 # inactive: background-color:#BBB;
 # slipping: background-color:#FDD;
-        if self.is_ia_inactive:
+        if self.is_inactive:
             return ' class="inactive"'
 
-        if self.is_slipping_into_ia_inactivity:
+        if self.is_slipping_into_inactivity:
             return ' class="slipping"'
         
         return ''

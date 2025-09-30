@@ -62,7 +62,7 @@ class User:
 
             previous_username = params[b'4::olduser'].decode('utf8')
             current_username = params[b'5::newuser'].decode('utf8')
-            
+
             if current_username == self.username_underscore:
                 return previous_username
 
@@ -151,7 +151,7 @@ class User:
 
     def count_jscss_edits(self, earliest_timestamp:int) -> int:
         edit_count = 0
-        
+
         for dct in self._query_jscss_edits(earliest_timestamp):
             page_title = dct.get('page_title', b'').decode('utf8')
             page_namespace = dct.get('page_namespace', 0)
@@ -161,7 +161,7 @@ class User:
                 continue
 
             edit_count += 1
-        
+
         return edit_count
 
     def _query_jscss_edits(self, earliest_timestamp:int) -> list[dict[str, Any]]:
@@ -243,11 +243,20 @@ class User:
 
 class UserWithElevatedRights(User):
     system_accounts = [ 'Abuse filter', 'Maintenance script', 'MediaWiki default', 'MediaWiki message delivery' ]  # system accounts that do not have a promotion date
-    
-    def __init__(self, username:str, level:Optional[str]=None) -> None:
+
+    def __init__(self, username:str, level:Optional[str]=None, future_usernames:Optional[list[str]]=None) -> None:
         super().__init__(username)
         if level is not None:  # optionally overwrite the class attribute with an instance attribute
             self.level = level
+
+        # usernames that the account will be renamed to in the future; to prevent getting stuck in loops in rare cases when the account is renamed back to a previous name
+        self.future_usernames:list[str] = []
+        if future_usernames is not None:
+            for future_username in future_usernames:
+                if future_username in self.future_usernames:
+                    continue
+                self.future_usernames.append(future_username)
+
         self.init_promotion_timestamps()
 
     @property
@@ -300,13 +309,13 @@ class UserWithElevatedRights(User):
                 self.promotion_timestamps += previous_level_user.promotion_timestamps
 
         previous_username = self.get_previous_username()
-        if previous_username is not None:
-            previous_user = UserWithElevatedRights(previous_username, level=self.level)
+        if previous_username is not None and previous_username not in self.future_usernames:
+            previous_user = UserWithElevatedRights(previous_username, level=self.level, future_usernames=[*self.future_usernames, self.username])
             self.promotion_timestamps += previous_user.promotion_timestamps
 
             if len(self.former_levels) > 0:
                 for former_level in self.former_levels:
-                    previous_level_user = UserWithElevatedRights(previous_username, level=former_level)
+                    previous_level_user = UserWithElevatedRights(previous_username, level=former_level, future_usernames=[*self.future_usernames, self.username])
                     self.promotion_timestamps += previous_level_user.promotion_timestamps
 
     def _query_rights_changes(self, database:str='wikidatawiki') -> list[dict[str, Any]]:
@@ -438,7 +447,7 @@ class UserManager:
     def get_report_page(self, t_start:float) -> str:
         timestamp = str(int(t_start))
         timestamp_formatted = strftime('%Y-%m-%d, %H:%M:%S (UTC)', gmtime(t_start))
-        
+
         with open(f'./templates/{self.__class__.report_template}', mode='r', encoding='utf8') as file_handle:
             template = file_handle.read()
 
@@ -453,7 +462,7 @@ class UserManager:
 
 class UserManagerWithTimestamps(UserManager):
     user_class:Type[UserWithInactivityPolicy]
-    
+
     def __init__(self, timeframe:int) -> None:
         self.start_ts, self.warn_ts = UserManagerWithTimestamps.get_timestamps(timeframe)
         super().__init__()
